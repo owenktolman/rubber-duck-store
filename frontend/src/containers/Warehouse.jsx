@@ -28,7 +28,7 @@ const Warehouse = () => {
     const openDuckForm = (edit, id) => {
         setIsEdit(edit)
         setModalOpen(true)
-        //if edit, put current duck data into form default  - otherwise default duck
+        //if editing, put current duck data into form default - otherwise default duck
         //find instead of filter to get the actual object, ids are distinct so should never need to check for multiple
         edit && id ?
             setCurrentDuck(ducks.find(d => d.id === id)) :

@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 import Duck from '../models/duck.model.js'
 import {badReqResp, internalErrResp, notFoundResp, successResp} from './defaultResponses.js'
-import {findDuckByValues} from '../services/duckService.js'
+import {getDuckByValues, updateDuck} from '../services/duckService.js'
 import {DuckColorEnum, DuckSizeEnum} from '../constants/enums.js'
 import res from 'express/lib/response.js'
 
@@ -39,7 +39,7 @@ export const createDuck = async (req, res) => {
         return badReqResp(res, 'Invalid duck values')
     }
 
-    let existingDuck = await findDuckByValues({
+    let existingDuck = await getDuckByValues({
         color: duck.color,
         size: duck.size,
         price: duck.price,
@@ -47,10 +47,13 @@ export const createDuck = async (req, res) => {
 
     if (existingDuck) {
         existingDuck.quantity = parseInt(existingDuck.quantity) + parseInt(duck.quantity)
+
+        //undelete duck if exists
         if (existingDuck.deleted) existingDuck.deleted = false
+
         try {
-            await Duck.findByIdAndUpdate(existingDuck._id, existingDuck, { new: false })
-            successResp(res, existingDuck)
+            const updatedDuck = await updateDuck(existingDuck._id, existingDuck)
+            successResp(res, updatedDuck)
         } catch (error) {
             console.error('Error creating Duck: ', error.message)
             internalErrResp(res, error.message)
@@ -72,7 +75,7 @@ export const createDuck = async (req, res) => {
     }
 }
 
-export const updateDuck = async (req, res) => {
+export const editDuck = async (req, res) => {
     const { id } = req.params
     const duck = req.body
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -80,7 +83,7 @@ export const updateDuck = async (req, res) => {
     }
 
     try {
-        const updatedDuck = await Duck.findByIdAndUpdate(id, duck, { new: false })
+        const updatedDuck = await updateDuck(id, duck)
         successResp(res, updatedDuck)
     } catch (error) {
         console.log('Error updating Duck at id ' + id + ': ', error.message)
@@ -93,7 +96,6 @@ const itemizePayments = (base, data, packageType) => {
     const increments = []
     const quantity = parseInt(data.duck.quantity)
     const baseCost = parseInt(base)
-    console.log(baseCost)
 
     const addPercentDiscount = (multiplier, reason) => {
         discounts.push({
@@ -222,11 +224,7 @@ export const orderDucks = async (req, res) => {
     const itemizedPayments = itemizePayments(baseCost, data, packageType)
 
     let totalPrice = baseCost
-    Object.keys(itemizedPayments.increments).forEach(i => {
-        console.log("increment", parseFloat(itemizedPayments.increments[i].amount))
-        totalPrice = totalPrice + parseFloat(itemizedPayments.increments[i].amount)
-        console.log("new total", totalPrice)
-    })
+    Object.keys(itemizedPayments.increments).forEach(i => {totalPrice = totalPrice + parseFloat(itemizedPayments.increments[i].amount)})
     Object.keys(itemizedPayments.discounts).forEach(i => totalPrice = totalPrice - parseFloat(itemizedPayments.discounts[i].amount))
 
     const resp = {

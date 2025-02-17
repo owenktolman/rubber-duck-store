@@ -2,7 +2,7 @@ import express from 'express'
 import {
     createDuck,
     getAllDucks,
-    updateDuck,
+    editDuck,
     getDuckConstants,
     orderDucks
 } from '../controllers/duck.controller.js'
@@ -49,7 +49,7 @@ router.post("/duck/", createDuck)
  *
  * @return {json} updated duck object
  */
-router.post("/duck/:id", updateDuck)
+router.post("/duck/:id", editDuck)
 
 /**
  * Orders ducks from warehouse

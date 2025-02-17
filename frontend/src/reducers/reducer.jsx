@@ -9,7 +9,8 @@ export const duckSlice = createSlice({
     reducers: {
         setDucks: (state, action) => {
             if (action.payload) {
-                state.ducks = action.payload.data
+                //sort by quantity descending
+                state.ducks = action.payload.data.sort((a, b) => b.quantity - a.quantity)
             }
         },
         setConstants: (state, action) => {
