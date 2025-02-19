@@ -7,9 +7,9 @@ export const internalErrResp = (res, msg) => {
 }
 
 export const successResp = (res, msg) => {
-    res.status(201).json({ success: true, data: msg })
+    return res.status(201).json({ success: true, data: msg })
 }
 
 export const notFoundResp = (res, msg) => {
-    res.status(404).json({ success: false, message: 'Not Found: ' + msg })
+    return res.status(404).json({ success: false, message: 'Not Found: ' + msg })
 }

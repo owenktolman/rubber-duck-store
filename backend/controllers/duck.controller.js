@@ -1,8 +1,13 @@
-import mongoose from 'mongoose'
 import Duck from '../models/duck.model.js'
 import {badReqResp, internalErrResp, notFoundResp, successResp} from './defaultResponses.js'
-import {getDuckByValues, updateDuck} from '../services/duckService.js'
-import {DuckColorEnum, DuckSizeEnum} from '../constants/enums.js'
+import {getDuckByValues, getIsDuckValid, updateDuck} from '../services/duckService.js'
+import {
+    DuckColorEnum,
+    DuckSizeEnum,
+    getDuckColorEnum,
+    getDuckSizeEnum,
+    ShippingDestinationEnum
+} from '../constants/enums.js'
 import res from 'express/lib/response.js'
 
 export const getDuckConstants = async (req, res) => {
@@ -11,19 +16,19 @@ export const getDuckConstants = async (req, res) => {
             duckColors: DuckColorEnum,
             duckSizes: DuckSizeEnum,
         }
-        successResp(res, constants)
+        return successResp(res, constants)
     } catch (error) {
-        internalErrResp(res, error.message)
+        return internalErrResp(res, error.message)
     }
 }
 
 export const getAllDucks = async (req, res) => {
     try {
         const ducks = await Duck.find({})
-        successResp(res, ducks)
+        return successResp(res, ducks)
     } catch (error) {
         console.log('Error getting ducks', error.message)
-        internalErrResp(res, error.message)
+        return internalErrResp(res, error.message)
     }
 }
 
@@ -35,7 +40,7 @@ export const createDuck = async (req, res) => {
         return badReqResp(res, 'Please provide all required fields')
     }
     //check for invalid colors or sizes
-    if (!Object.keys(DuckColorEnum).filter(c => c.name === duck.color) || !Object.keys(DuckSizeEnum).filter(c => c.name === duck.size)) {
+    if (!getDuckColorEnum(duck.color) || !getDuckSizeEnum(duck.size)) {
         return badReqResp(res, 'Invalid duck values')
     }
 
@@ -43,51 +48,49 @@ export const createDuck = async (req, res) => {
         color: duck.color,
         size: duck.size,
         price: duck.price,
+        deleted: false //only get existing undeleted ducks
     })
 
     if (existingDuck) {
         existingDuck.quantity = parseInt(existingDuck.quantity) + parseInt(duck.quantity)
 
-        //undelete duck if exists
-        if (existingDuck.deleted) existingDuck.deleted = false
-
         try {
             const updatedDuck = await updateDuck(existingDuck._id, existingDuck)
-            successResp(res, updatedDuck)
+            return successResp(res, updatedDuck)
         } catch (error) {
             console.error('Error creating Duck: ', error.message)
-            internalErrResp(res, error.message)
+            return internalErrResp(res, error.message)
         }
     } else {
         if (!duck.id) {
-            //increment id, nothing is ever removed from db so no need to worry about ordering
+            //increment id, nothing is ever removed from db so no need to worry about duplicates
             const count = await Duck.countDocuments({})
             duck.id = count + 1
         }
         const newDuck = new Duck(duck)
         try {
             await newDuck.save()
-            successResp(res, newDuck)
+            return successResp(res, newDuck)
         } catch (error) {
             console.error('Error creating Duck: ', error.message)
-            internalErrResp(res, error.message)
+            return internalErrResp(res, error.message)
         }
     }
 }
 
 export const editDuck = async (req, res) => {
-    const { id } = req.params
+    const { id } = req.params // id here is _id, not integer id
     const duck = req.body
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!await getIsDuckValid(id)) {
         return notFoundResp(res, 'Please provide a valid duck id')
     }
 
     try {
         const updatedDuck = await updateDuck(id, duck)
-        successResp(res, updatedDuck)
+        return successResp(res, updatedDuck)
     } catch (error) {
         console.log('Error updating Duck at id ' + id + ': ', error.message)
-        internalErrResp(res, error.message)
+        return internalErrResp(res, error.message)
     }
 }
 
@@ -126,18 +129,11 @@ const itemizePayments = (base, data, packageType) => {
             addPercentDiscount(0.01, 'Cardboard Packaging Discount')
             break
         default:
-            internalErrResp(res, 'Error handling packaging type')
-            return
+            return internalErrResp(res, 'Error handling packaging type')
     }
 
     //discounts or increments from shipping destination
-    const shippingIncrements = {
-        'USA': 0.18,
-        'BOL': 0.13,
-        'IND': 0.19,
-        'default': 0.15,
-    }
-    addPercentIncrement((shippingIncrements[data.destination] || shippingIncrements['default']), 'Shipping Cost')
+    addPercentIncrement((ShippingDestinationEnum[data.destination] || ShippingDestinationEnum['default']), 'Shipping Cost')
 
     //discounts or increments from shipping method
     switch (data.shippingMode) {
@@ -153,8 +149,7 @@ const itemizePayments = (base, data, packageType) => {
             if (quantity > 1000) discounts.push({ amount: parseFloat((increment * 0.15).toFixed(2)), reason: 'Bulk Air Shipping' }) //itemized separately
             break
         default:
-            internalErrResp(res, 'Error handling shipping mode')
-            return
+            return internalErrResp(res, 'Error handling shipping mode')
     }
 
     return {discounts, increments}
@@ -165,36 +160,27 @@ export const orderDucks = async (req, res) => {
 
     //verify needed data exists
     if (!data.destination || !data.shippingMode || !data.duck) {
-        badReqResp(res, 'Please provide all required fields')
+        return badReqResp(res, 'Please provide all required fields')
     }
-    //TODO: verify valid destinations and shippingModes
-
-    //check that duck to be ordered is real
-    if (!mongoose.Types.ObjectId.isValid(data.duck._id)) {
-        internalErrResp(res, 'Could not verify duck is valid')
+    //verify that duck to be ordered is real and not deleted
+    if (!data.duck?._id || !await getIsDuckValid(data.duck._id)) {
+        return internalErrResp(res, 'Could not verify duck is valid')
+    } else if (!await getDuckByValues({ _id: data.duck._id, deleted: false })) {
+        return badReqResp(res, 'Could not order deleted duck')
     }
+    //verify duck size and color
+    if (!getDuckSizeEnum(data.duck.size) || !getDuckColorEnum(data.duck.color)) {
+        return badReqResp(res, 'Invalid duck size')
+    }
+    //verify duck quantity > 0
+    if (data.duck.quantity <= 0) return badReqResp(res, 'Cannot order 0 or fewer ducks')
 
-    let packageType
+    const packageType = getDuckSizeEnum(data.duck.size).packageType
+    if (!packageType) return internalErrResp(res, 'Error determining package type')
+
     let protectionType = []
 
-    //TODO handle via enum
-    switch(data.duck.size) {
-        case 'XLarge':
-        case 'Large':
-            packageType = 'Wood'
-            break
-        case 'Medium':
-            packageType = 'Cardboard'
-            break
-        case 'Small':
-        case 'XSmall':
-            packageType = 'Plastic'
-            break
-        default:
-            internalErrResp(res, 'Error identifying duck size')
-            return
-    }
-
+    //determine package protection type based on package type and shipping mode
     switch(data.shippingMode) {
         case 'Air':
             if (packageType === 'Wood' || packageType === 'Cardboard') {
@@ -212,8 +198,7 @@ export const orderDucks = async (req, res) => {
             protectionType.push('Bubblewrap')
             break
         default:
-            internalErrResp(res, 'Error identifying shipping mode')
-            return
+            return internalErrResp(res, 'Error identifying shipping mode')
     }
 
     const quantity = parseFloat(data.duck.quantity).toFixed(0)
@@ -234,5 +219,5 @@ export const orderDucks = async (req, res) => {
         itemizedPayments: itemizedPayments,
     }
 
-    successResp(res, resp)
+    return successResp(res, resp)
 }

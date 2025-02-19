@@ -34,3 +34,16 @@ export const updateDuck = (duck) => async (dispatch) => {
     //fetch ducks after updating duck, optimization: update duck in store immediately and match up later
     dispatch(fetchDucks())
 }
+
+export const orderDucks = async (destination, mode, duck) => {
+    const data = {
+        destination: destination,
+        shippingMode: mode,
+        duck: { ...duck },
+    }
+    await fetch(`${HOST}/order`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+    }).catch(error => console.error(error))
+}

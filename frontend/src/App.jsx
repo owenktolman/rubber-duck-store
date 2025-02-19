@@ -1,15 +1,8 @@
 import {useEffect, useState} from 'react'
 import {Box} from '@mui/joy'
 import {Navigate, Route, Routes, useLocation} from 'react-router-dom'
-import Warehouse from './containers/Warehouse.jsx'
-import Store from './containers/Store.jsx'
 import Navbar from './components/Navbar.jsx'
-
-//one array to control routing and navbar values
-export const navArray = [
-    { path: '/warehouse', name: 'Warehouse', element: <Warehouse /> },
-    { path: '/store', name: 'Store', element: <Store /> },
-]
+import {NavArray} from './shared/NavArray.jsx'
 
 function App() {
     const location = useLocation()
@@ -17,7 +10,7 @@ function App() {
 
     useEffect(() => {
         //handle changing navbar active option if the user navigates to a page via url/link
-        const index = navArray.findIndex(i => i.path === location.pathname)
+        const index = NavArray.findIndex(i => i.path === location.pathname)
         index && setNavIndex(index)
     }, [location])
 
@@ -26,11 +19,11 @@ function App() {
             <Navbar navIndex={navIndex} setNavIndex={setNavIndex} />
             <Routes>
                 <Route path='/'>
-                    {navArray.map((n, i) => (
+                    {NavArray.map((n, i) => (
                         <Route key={'route'+i} path={n.path} element={n.element} />
                     ))}
+                    <Route path='*' element={<Navigate to='/' />} />
                 </Route>
-                <Route path='*' element={<Navigate to='/warehouse' />} />
             </Routes>
         </Box>
     )
