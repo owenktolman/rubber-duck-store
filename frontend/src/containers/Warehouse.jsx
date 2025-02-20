@@ -160,20 +160,20 @@ const Warehouse = () => {
 
 export default Warehouse
 
-const DuckForm = ({ submit, constants, currentDuck, setCurrentDuck, isEdit = false, del = false, close }) => {
+const DuckForm = ({ submit, constants: {duckColors, duckSizes}, currentDuck, setCurrentDuck, isEdit = false, del = false, close }) => {
     return (
         <>
             <p>Color: </p>
             <ConstantsDropdown
                 disabled={del || isEdit}
-                constants={constants.duckColors}
+                constants={duckColors}
                 current={currentDuck && currentDuck.color}
                 onChange={(event) => setCurrentDuck({...currentDuck, color: event.target.value})}
             />
             <p>Size: </p>
             <ConstantsDropdown
                 disabled={del || isEdit}
-                constants={constants.duckSizes}
+                constants={duckSizes}
                 current={currentDuck && currentDuck.size}
                 onChange={(event) => setCurrentDuck({...currentDuck, size: event.target.value})}
             />
@@ -194,11 +194,11 @@ const DuckForm = ({ submit, constants, currentDuck, setCurrentDuck, isEdit = fal
                 step="0.01"
                 onChange={(event) => setCurrentDuck({...currentDuck, price: event.target.value})}
             />
-            <br/>
+            <Spacing />
             {del && (
                 <>
                     <span>Are you sure you want to delete this duck?</span>
-                    <br />
+                    <Spacing />
                     <StyledButton onClick={() => close()}>Cancel</StyledButton>
                 </>
             )}
@@ -245,5 +245,10 @@ const StyledTD = styled.td`
 const StyledButton = styled.button`
     font-size: 16px;
     border: 1px solid #000;
-    padding: 16px 48px;
+    padding: 16px 36px;
+    margin-right: 5px;
+`
+
+const Spacing = styled.div`
+    margin-top: 20px;
 `
